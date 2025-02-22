@@ -20,10 +20,9 @@ async def fetch_property_details(session, property_url):
             return
         price = parse_price(price_text.get_text())
         print(f"🏠 {property_url} → Precio: {price}")
-        await asyncio.sleep(random.uniform(5, 15))  # Espera aleatoria
+        await asyncio.sleep(random.uniform(5, 15))
 
 
-# 🔍 Función para extraer enlaces de propiedades de una página
 async def fetch_property_links(session, soup):
     return [link.get('href') for link in soup.find_all("a", class_="item-link")]
 
@@ -41,7 +40,7 @@ async def get_next_page_link(session, soup):
 # 🏡 Función principal asíncrona
 async def main():
     start_time = time.time()
-    print("🔍 Scrapeando Idealista de forma asíncrona...")
+    print("🔍 Scraping Idealista asynchronous...")
     initial_url = "https://www.idealista.com/geo/venta-viviendas/rodalies-premia-de-mar/con-precio-hasta_600000,metros-cuadrados-mas-de_120,chalets/"
 
     async with AsyncSession(impersonate="chrome") as session:
@@ -65,6 +64,5 @@ async def run_scraper(url: str | None, session):
     await run_scraper(next_page_link, session)
 
 
-# 🚀 Ejecutar el script asíncrono
 if __name__ == "__main__":
     asyncio.run(main())
