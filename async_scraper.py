@@ -24,8 +24,20 @@ class IdealistaScraper:
                 print(f"❌ price text not found for property {property_url}")
                 return
             price = parse_price(price_text.get_text())
-            print(f"🏠 {property_url} → Precio: {price}")
+            title = await self.get_property_title(session, soup)
+            print(f"🏠 {property_url} → Price: {price} -> Title: {title}")
+            # Property(
+            #   price=price.get_amount()
+            #   title=self.get_property_title()
+            # )
             await asyncio.sleep(random.uniform(5, 15))
+
+    async def get_property_title(self, session, soup):
+        title_span = soup.find("span", class_="main-info__title-main")
+        if title_span is None:
+            print("Property title not found")
+            return
+        return title_span.get_text()
 
     async def fetch_property_links(self, session, soup):
         return [link.get('href') for link in soup.find_all("a", class_="item-link")]
