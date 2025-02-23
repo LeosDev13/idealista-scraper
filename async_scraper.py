@@ -1,6 +1,9 @@
 import asyncio
+import re
+import json
 import time
 import random
+from collections import namedtuple
 from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 from db import Db
@@ -25,12 +28,47 @@ class IdealistaScraper:
                 return
             price = parse_price(price_text.get_text())
             title = await self.get_property_title(session, soup)
+            features =  self.get_features(soup)
+            # price=price.get_amount()
             print(f"🏠 {property_url} → Price: {price} -> Title: {title}")
-            # Property(
-            #   price=price.get_amount()
-            #   title=self.get_property_title()
-            # )
-            await asyncio.sleep(random.uniform(5, 15))
+            print(f"Room number -> {features.room_number} -> Bath number: {features.bath_number}")
+
+            await asyncio.sleep(random.uniform(5,15))
+
+    def get_features(self, soup):
+        Features = namedtuple("Features", ["room_number", "bath_number"])
+        script_tag = soup.find(
+            "script", string=re.compile(r"window\.utag_data\s*=\s*utag_data")
+        )
+        if script_tag is None:
+            print("❌ script tag not found")
+            return
+        print("✅script tag found")
+        json_data = self.extract_utag_data(script_tag)
+
+        characteristics = json_data.get("ad", {}).get("characteristics", {})
+        room_number = characteristics.get("roomNumber")
+        bath_number = characteristics.get("bathNumber")
+
+        features = Features(room_number, bath_number)
+        return features
+
+    def extract_utag_data(self, script):
+        regex = re.compile(r"var\s+utag_data\s*=\s*(\{.*?\});", re.DOTALL)
+        script_text = regex.search(script.text)
+
+        if script_text is None:
+            return None
+
+        json_string = script_text.group(1)
+
+        try:
+            json_data = json.loads(json_string)
+            return json_data
+        except json.JSONDecodeError as e:
+            print(f"❌ json decode error: {e}")
+
+        return None
 
     async def get_property_title(self, session, soup):
         title_span = soup.find("span", class_="main-info__title-main")
@@ -72,7 +110,7 @@ class IdealistaScraper:
 
         next_page_link = await self.get_next_page_link(session, soup)
 
-        await self.run_scraper(next_page_link, session)
+        await self.scrape_page(next_page_link, session)
 
 
 if __name__ == "__main__":
