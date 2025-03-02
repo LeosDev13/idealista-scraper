@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 from db import Db
 from utils import parse_price
+from Logger import Logger
 
 BASE_URL = "https://www.idealista.com"
 
@@ -17,6 +18,7 @@ class IdealistaScraper:
         self.semaphore = asyncio.Semaphore(3)
         self.db = Db()
         self.session = None
+        self.logger = Logger(level="DEBUG")
 
     async def fetch_property_details(self, session, property_url):
         async with self.semaphore:
@@ -24,14 +26,14 @@ class IdealistaScraper:
             soup = BeautifulSoup(response.text, 'lxml')
             price_text = soup.find("span", class_="info-data-price")
             if price_text is None:
-                print(f"❌ price text not found for property {property_url}")
+                self.logger.error(f"❌ price text not found for property {property_url}")
                 return
             price = parse_price(price_text.get_text())
             title = await self.get_property_title(session, soup)
             features =  self.get_features(soup)
             # price=price.get_amount()
-            print(f"🏠 {property_url} → Price: {price} -> Title: {title}")
-            print(f"Room number -> {features.room_number} -> Bath number: {features.bath_number}")
+            self.logger.debug(f"🏠 {property_url} → Price: {price} -> Title: {title}")
+            self.logger.debug(f"Room number -> {features.room_number} -> Bath number: {features.bath_number}")
 
             await asyncio.sleep(random.uniform(5,15))
 
@@ -41,9 +43,8 @@ class IdealistaScraper:
             "script", string=re.compile(r"window\.utag_data\s*=\s*utag_data")
         )
         if script_tag is None:
-            print("❌ script tag not found")
+            self.logger.error("❌ script tag not found")
             return
-        print("✅script tag found")
         json_data = self.extract_utag_data(script_tag)
 
         characteristics = json_data.get("ad", {}).get("characteristics", {})
@@ -66,14 +67,14 @@ class IdealistaScraper:
             json_data = json.loads(json_string)
             return json_data
         except json.JSONDecodeError as e:
-            print(f"❌ json decode error: {e}")
+            self.logger.error(f"❌ json decode error: {e}")
 
         return None
 
     async def get_property_title(self, session, soup):
         title_span = soup.find("span", class_="main-info__title-main")
         if title_span is None:
-            print("Property title not found")
+            self.logger.error("Property title not found")
             return
         return title_span.get_text()
 
@@ -83,20 +84,20 @@ class IdealistaScraper:
     async def get_next_page_link(self, session, soup):
         next_li = soup.find("li", class_="next")
         if next_li is None:
-            print("❌ failed to find next li")
+            self.logger.error("❌ failed to find next li")
             return
         next_path = next_li.find("a").get("href")
         return f"{BASE_URL}{next_path}"
 
     async def run(self):
         start_time = time.time()
-        print("🔍 Scraping Idealista asynchronous...")
+        self.logger.info("🔍 Scraping Idealista asynchronous...")
         initial_url = "https://www.idealista.com/geo/venta-viviendas/rodalies-premia-de-mar/con-precio-hasta_600000,metros-cuadrados-mas-de_120,chalets/"
 
         async with AsyncSession(impersonate="chrome") as session:
             await self.scrape_page(initial_url, session)
 
-        print(f"✅ Tiempo total: {time.time() - start_time:.2f} segundos")
+        self.logger.info(f"✅ Tiempo total: {time.time() - start_time:.2f} segundos")
 
     async def scrape_page(self, url: str | None, session):
         if url is None:
