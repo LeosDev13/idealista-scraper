@@ -1,13 +1,20 @@
 import asyncio
 import time
+import re
+import json
+import random
 
+from collections import namedtuple
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 
+from Property import Property
 from Logger import Logger
 
 # TODO: review the whole class and see if we can simplify using only the features thing and not looking for the title in the html
 class IdealistaScraper:
+    BASE_URL = "https://www.idealista.com"
+
     def __init__(self, logger: Logger):
         self.semaphore = asyncio.Semaphore(3)
         self.session = None
@@ -15,23 +22,19 @@ class IdealistaScraper:
 
     async def fetch_property_details(self, session, property_url):
         async with self.semaphore:
-            response = await session.get(f"{BASE_URL}{property_url}")
+            response = await session.get(f"{self.BASE_URL}{property_url}")
             soup = BeautifulSoup(response.text, 'lxml')
-            price_text = soup.find("span", class_="info-data-price")
-            if price_text is None:
-                self.logger.error(f"❌ price text not found for property {property_url}")
-                return
-            price = parse_price(price_text.get_text())
+            
             title = await self.get_property_title(session, soup)
             features =  self.get_features(soup)
             # price=price.get_amount()
-            self.logger.debug(f"🏠 {property_url} → Price: {price} -> Title: {title}")
+            self.logger.debug(f"🏠 {property_url} -> Title: {title}")
             self.logger.debug(f"Room number -> {features.room_number} -> Bath number: {features.bath_number}")
 
             await asyncio.sleep(random.uniform(5,15))
 
     def get_features(self, soup):
-        Features = namedtuple("Features", ["room_number", "bath_number"])
+        Features = namedtuple("Features", ["room_number", "bath_number", "price", "has_parking", "has_garden", "has_swimming_pool", "has_terrace", "m2", "is_new_development", "needs_renovation", "is_in_good_condition", "agency_name"])
         script_tag = soup.find(
             "script", string=re.compile(r"window\.utag_data\s*=\s*utag_data")
         )
@@ -40,11 +43,30 @@ class IdealistaScraper:
             return
         json_data = self.extract_utag_data(script_tag)
 
-        characteristics = json_data.get("ad", {}).get("characteristics", {})
+        # TODO: refactor: split in each category, one function for characteristics, other for condition, another one for agency, price, etc.
+        # return each one in a function to build the property
+        # fill the locations map with more cases
+
+        ad = json_data.get("ad", {})
+        characteristics = ad.get("characteristics", {})
         room_number = characteristics.get("roomNumber")
         bath_number = characteristics.get("bathNumber")
+        has_parking = self.convert_string_to_bool(characteristics.get("hasParking", ""))
+        has_garden = self.convert_string_to_bool(characteristics.get("hasGarden", ""))
+        has_swimming_pool = self.convert_string_to_bool(characteristics.get("hasSwimmingPool", ""))
+        has_terrace = self.convert_string_to_bool(characteristics.get("hasTerrace", ""))
+        m2 = characteristics.get("constructedArea")
 
-        features = Features(room_number, bath_number)
+        condition = ad.get("condition", {})
+        is_new_development = self.convert_string_to_bool(condition.get("isNewDevelopment", ""))
+        needs_renovation = self.convert_string_to_bool(condition.get("isNeedsRenovating", ""))
+        is_in_good_condition = self.convert_string_to_bool(condition.get("isGoodCondition", ""))
+        
+        price = ad.get("price")
+
+        agency_name = json_data.get("agency", {}).get("name")
+        
+        features = Features(room_number, bath_number, price, has_parking, has_garden, has_swimming_pool, has_terrace, m2, is_new_development, needs_renovation, is_in_good_condition, agency_name)
         return features
 
     def extract_utag_data(self, script):
@@ -106,4 +128,5 @@ class IdealistaScraper:
 
         await self.scrape_page(next_page_link, session)
 
-
+    def convert_string_to_bool(self, value: str) -> bool:
+        return value == "1"
