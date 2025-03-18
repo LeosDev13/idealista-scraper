@@ -84,8 +84,8 @@ docker run --rm -it idealista-scraper /bin/sh
 
 🔹 Requirements:
 
-Docker already installed in yout machine.
-Ensure that pyproject.toml define correctly the dependencies.
+- Docker already installed in your machine.
+- Ensure that pyproject.toml define correctly the dependencies.
 
 ## 📌 Usage
 
