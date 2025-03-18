@@ -1,10 +1,7 @@
 import asyncio
-import re
-import json
 import time
 import random
 from collections import namedtuple
-from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 from db import Db
 from utils import parse_price
@@ -12,12 +9,12 @@ from Logger import Logger
 import itertools
 from collections import namedtuple
 
-class LocationsScraper:
 
+class LocationsScraper:
     BASE_URL = "https://www.idealista.com/es/locationsSuggest/sale/home?searchField="
     MAX_CONCURRENT_REQUESTS = 10
-    
-    def __init__(self, session, logger):
+
+    def __init__(self, session, logger: Logger):
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
         self.session = session
         self.logger = logger
@@ -26,11 +23,17 @@ class LocationsScraper:
     async def run(self):
         start_time = time.time()
         self.logger.info("🔍 Scraping Locations...")
-        combinations = [''.join(c) for c in itertools.product("abcdefghijklmnopqrstuvwxyz", repeat=2)]
+        combinations = [
+            "".join(c)
+            for c in itertools.product("abcdefghijklmnopqrstuvwxyz", repeat=2)
+        ]
 
         async with self.semaphore:
             async with AsyncSession(impersonate="chrome") as session:
-                tasks = [self.fetch_locations(session, f"{self.BASE_URL}{combination}") for combination in combinations]
+                tasks = [
+                    self.fetch_locations(session, f"{self.BASE_URL}{combination}")
+                    for combination in combinations
+                ]
                 await asyncio.gather(*tasks)
 
         self.logger.debug(self.locations)
@@ -54,14 +57,11 @@ class LocationsScraper:
 
         Location = namedtuple("Location", ["url", "count", "text"])
         for location_json in locations_json:
-            location = Location(url=location_json["url"], count=location_json["count"], text=location_json["text"])
+            location = Location(
+                url=location_json["url"],
+                count=location_json["count"],
+                text=location_json["text"],
+            )
             self.locations.add(location)
-        
+
         time.sleep(0.5)
-        
-        
-
-        
-
- 
-    
