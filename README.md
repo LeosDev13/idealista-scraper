@@ -61,6 +61,32 @@ The dashboard provides real-time insights to help users make informed investment
     uv run async_scraper.py
     ```
 
+🚀 How to setup with docker
+
+1️⃣BBuild the image
+```bash
+docker build -t idealista-scraper .
+```
+
+2️⃣ Run the container
+
+```bash
+docker run --rm idealista-scraper
+```
+💡 This will init the scraper and run it automatically with ```uv run main.py```.
+
+🔄 Run it in interactive mode
+If you need to open a shell in the container
+
+```bash
+docker run --rm -it idealista-scraper /bin/sh
+```
+
+🔹 Requirements:
+
+Docker already installed in yout machine.
+Ensure that pyproject.toml define correctly the dependencies.
+
 ## 📌 Usage
 
 - Run the scraper periodically to update the dataset.
