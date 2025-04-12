@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from Money import Money
+from models.Money import Money
 
 
 class Property(BaseModel):

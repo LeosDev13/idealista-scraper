@@ -1,15 +1,20 @@
 import asyncio
-from Logger import Logger
+
 # from LocationsScraper import LocationsScraper
-from IdealistaScraper import IdealistaScraper
+from core.Logger import Logger
+from core.Database import Database
+from scraper.IdealistaScraper import IdealistaScraper
+
 
 async def main():
     logger = Logger(level="DEBUG")
+    database = Database(logger)
 
+    #  locations_scraper = LocationsScraper(logger, database)
+    # await locations_scraper.run()
     idealista_scraper = IdealistaScraper(logger)
     await idealista_scraper.run()
 
+
 if __name__ == "__main__":
-    # run only one time and save it to idealista, we do not need to run multiple times because the locations does not change
-    # locations_scraper = LocationsScraper()
     asyncio.run(main())

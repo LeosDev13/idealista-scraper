@@ -1,4 +1,4 @@
-from Logger import Logger
+from core.Logger import Logger
 from supabase import create_client, Client
 
 import os
@@ -18,13 +18,15 @@ class Database:
         self.logger = logger
         self.client: Client = create_client(self.url, self.key)
 
-    def insert_locations(self, locations: set[dict]) -> bool:
-        self.logger.debug(f"locations received: {locations}")
-        locations_list = list(locations)
-        self.logger.debug(f"Inserting locations: {locations_list}")
+    def insert_locations(self, locations: list[dict]) -> bool:
+        response = self.client.table("Locations").select("*").execute()
+        self.logger.debug(f"supabase connection was succeded: {response}")
         try:
-            response = self.client.table("locations").insert(locations_list).execute()
+            response = self.client.table("Locations").insert(locations).execute()
+            if response.data is None:
+                self.logger.error(f"Supabase insert failed: {response}")
+                return False
             return len(response.data) > 0
         except Exception as e:
-            self.logger.error(f"Error inserting locations: {e}")
+            self.logger.error(f"Error inserting locations: {str(e)}")
             return False
