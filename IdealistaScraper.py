@@ -4,72 +4,96 @@ import re
 import json
 import random
 
-from collections import namedtuple
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 
+from PropertyDetails import PropertyDetails
 from Property import Property
 from Logger import Logger
+from constants import BASE_URL
 
-# TODO: review the whole class and see if we can simplify using only the features thing and not looking for the title in the html
+
 class IdealistaScraper:
-    BASE_URL = "https://www.idealista.com"
-
     def __init__(self, logger: Logger):
         self.semaphore = asyncio.Semaphore(3)
         self.session = None
         self.logger = logger
 
-    async def fetch_property_details(self, session, property_url):
+    async def get_property_data(self, session, property_url: str) -> Property | None:
+        details = self._fetch_property_details(session, property_url)
+        if details:
+            return Property(**details)
+
+        self.logger.debug(f"❌ no details found in property: {property_url}")
+        return None
+
+    async def _fetch_property_details(self, session, property_url):
         async with self.semaphore:
-            response = await session.get(f"{self.BASE_URL}{property_url}")
-            soup = BeautifulSoup(response.text, 'lxml')
-            
-            title = await self.get_property_title(session, soup)
-            features =  self.get_features(soup)
-            # price=price.get_amount()
-            self.logger.debug(f"🏠 {property_url} -> Title: {title}")
-            self.logger.debug(f"Room number -> {features.room_number} -> Bath number: {features.bath_number}")
+            try:
+                response = await session.get(f"{BASE_URL}{property_url}")
+                response.raise_for_status()
+            except Exception as e:
+                self.logger.error(f"Failed to fetch {property_url}: {e}")
+                return None
 
-            await asyncio.sleep(random.uniform(5,15))
+            soup = BeautifulSoup(response.text, "lxml")
+            await asyncio.sleep(random.uniform(5, 15))
 
-    def get_features(self, soup):
-        Features = namedtuple("Features", ["room_number", "bath_number", "price", "has_parking", "has_garden", "has_swimming_pool", "has_terrace", "m2", "is_new_development", "needs_renovation", "is_in_good_condition", "agency_name"])
-        script_tag = soup.find(
-            "script", string=re.compile(r"window\.utag_data\s*=\s*utag_data")
+            return self._extract_property_details(soup, property_url)
+
+    def _extract_property_details(
+        self, soup: BeautifulSoup, property_url: str
+    ) -> PropertyDetails | None:
+        json_data = self._extract_utag_data(soup)
+        if not json_data:
+            return None
+
+        return self.PropertyDetails(
+            **self._extract_characteristics(json_data),
+            **self._extract_condition(json_data),
+            price=self._extract_price(json_data),
+            agency_name=self._extract_agency_name(json_data),
+            **self._extract_metadata(soup, property_url),
         )
-        if script_tag is None:
-            self.logger.error("❌ script tag not found")
-            return
-        json_data = self.extract_utag_data(script_tag)
 
-        # TODO: refactor: split in each category, one function for characteristics, other for condition, another one for agency, price, etc.
-        # return each one in a function to build the property
-        # fill the locations map with more cases
+    def _extract_characteristics(self, data: dict) -> dict:
+        characteristics = data.get("ad", {}).get("characteristics", {})
+        return {
+            "room_number": characteristics.get("roomNumber"),
+            "bath_number": characteristics.get("bathNumber"),
+            "m2": characteristics.get("constructedArea"),
+            "has_parking": self._str_to_bool(characteristics.get("hasParking", "")),
+            "has_garden": self._str_to_bool(characteristics.get("hasGarden", "")),
+            "has_swimming_pool": self._str_to_bool(
+                characteristics.get("hasSwimmingPool", "")
+            ),
+            "has_terrace": self._str_to_bool(characteristics.get("hasTerrace", "")),
+        }
 
-        ad = json_data.get("ad", {})
-        characteristics = ad.get("characteristics", {})
-        room_number = characteristics.get("roomNumber")
-        bath_number = characteristics.get("bathNumber")
-        has_parking = self.convert_string_to_bool(characteristics.get("hasParking", ""))
-        has_garden = self.convert_string_to_bool(characteristics.get("hasGarden", ""))
-        has_swimming_pool = self.convert_string_to_bool(characteristics.get("hasSwimmingPool", ""))
-        has_terrace = self.convert_string_to_bool(characteristics.get("hasTerrace", ""))
-        m2 = characteristics.get("constructedArea")
+    def _extract_condition(self, data: dict) -> dict:
+        condition = data.get("ad", {}).get("condition", {})
+        return {
+            "is_new_development": self._str_to_bool(
+                condition.get("isNewDevelopment", "")
+            ),
+            "needs_renovation": self._str_to_bool(
+                condition.get("isNeedsRenovating", "")
+            ),
+            "is_in_good_condition": self._str_to_bool(
+                condition.get("isGoodCondition", "")
+            ),
+        }
 
-        condition = ad.get("condition", {})
-        is_new_development = self.convert_string_to_bool(condition.get("isNewDevelopment", ""))
-        needs_renovation = self.convert_string_to_bool(condition.get("isNeedsRenovating", ""))
-        is_in_good_condition = self.convert_string_to_bool(condition.get("isGoodCondition", ""))
-        
-        price = ad.get("price")
+    def _extract_price(self, data: dict) -> str | None:
+        return data.get("ad", {}).get("price")
 
-        agency_name = json_data.get("agency", {}).get("name")
-        
-        features = Features(room_number, bath_number, price, has_parking, has_garden, has_swimming_pool, has_terrace, m2, is_new_development, needs_renovation, is_in_good_condition, agency_name)
-        return features
+    def _extract_agency_name(self, data: dict) -> str | None:
+        return data.get("agency", {}).get("name")
 
-    def extract_utag_data(self, script):
+    def _extract_metadata(self, soup: BeautifulSoup, property_url: str) -> dict:
+        return {"title": self._extract_title(soup), "url": property_url}
+
+    def _extract_utag_data(self, script):
         regex = re.compile(r"var\s+utag_data\s*=\s*(\{.*?\});", re.DOTALL)
         script_text = regex.search(script.text)
 
@@ -93,8 +117,8 @@ class IdealistaScraper:
             return
         return title_span.get_text()
 
-    async def fetch_property_links(self, session, soup):
-        return [link.get('href') for link in soup.find_all("a", class_="item-link")]
+    async def _fetch_property_links(self, session, soup):
+        return [link.get("href") for link in soup.find_all("a", class_="item-link")]
 
     async def get_next_page_link(self, session, soup):
         next_li = soup.find("li", class_="next")
@@ -120,9 +144,11 @@ class IdealistaScraper:
         r = await session.get(url)
         soup = BeautifulSoup(r.text, "lxml")
 
-        property_links = await self.fetch_property_links(session, soup)
+        property_links = await self._fetch_property_links(session, soup)
 
-        await asyncio.gather(*[self.fetch_property_details(session, link) for link in property_links])
+        await asyncio.gather(
+            *[self._fetch_property_details(session, link) for link in property_links]
+        )
 
         next_page_link = await self.get_next_page_link(session, soup)
 
