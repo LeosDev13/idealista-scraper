@@ -54,7 +54,15 @@ class IdealistaScraper:
             price=self._extract_price(json_data),
             agency_name=self._extract_agency_name(json_data),
             **self._extract_metadata(soup, property_url),
+            is_illegally_ocuppied=self._extract_is_illegally_ocuppied(soup),
         )
+
+    def _extract_is_illegaly_ocuppied(self, soup) -> bool:
+        is_illegally_ocuppied_tag = soup.find("span", string="Ocupada ilegalmente")
+
+        if is_illegally_ocuppied_tag:
+            return True
+        return False
 
     def _extract_characteristics(self, data: dict) -> dict:
         characteristics = data.get("ad", {}).get("characteristics", {})
