@@ -2,12 +2,19 @@ import sqlite3
 
 create_table = """
     CREATE TABLE IF NOT EXISTS Properties (
-    id TEXT PRIMARY KEY, 
-    title TEXT NOT NULL, 
-    Price INTEGER NOT NULL,
-    Currency TEXT NOT NULL
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    square_meters INTEGER NOT NULL,
+    rooms int NOT NULL,
+    has_garage INTEGER DEFAULT 0,
+    tags TEXT NOT NULL,
+    price_per_meter INTEGER NOT NULL,
+    lcoation TEXT NOT NULL
 );
 """
+# default integer as 0 means FALSE
 
 
 class Db:
