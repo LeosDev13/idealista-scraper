@@ -7,10 +7,10 @@ import random
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 
-from PropertyDetails import PropertyDetails
-from Property import Property
-from Logger import Logger
-from constants import BASE_URL
+from models.PropertyDetails import PropertyDetails
+from models.Property import Property
+from core.Logger import Logger
+from constants.constants import BASE_URL
 
 
 class IdealistaScraper:
