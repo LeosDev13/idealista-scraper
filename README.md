@@ -61,14 +61,14 @@ The dashboard provides real-time insights to help users make informed investment
     uv run async_scraper.py
     ```
 
-🚀 How to setup with docker
+## How to setup with docker
 
-1️⃣BBuild the image
+1. Build the image
 ```bash
 docker build -t idealista-scraper .
 ```
 
-2️⃣ Run the container
+2. Run the container
 
 ```bash
 docker run --rm idealista-scraper
