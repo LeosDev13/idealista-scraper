@@ -58,7 +58,7 @@ The dashboard provides real-time insights to help users make informed investment
 
 3. Run it
     ```bash
-    uv run async_scraper.py
+    uv run -m scraper
     ```
 
 ## How to setup with docker
