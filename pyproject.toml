@@ -7,7 +7,9 @@ requires-python = ">=3.8"
 dependencies = [
     "bs4>=0.0.2",
     "curl-cffi>=0.9.0",
+    "dotenv>=0.9.9",
     "loguru>=0.7.3",
     "lxml>=5.3.1",
     "pydantic>=2.10.6",
+    "supabase>=2.6.0",
 ]
