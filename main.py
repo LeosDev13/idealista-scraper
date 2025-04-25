@@ -1,8 +1,7 @@
+import asyncio
 from Logger import Logger
 # from LocationsScraper import LocationsScraper
 from IdealistaScraper import IdealistaScraper
-
-BASE_URL = "https://www.idealista.com"
 
 async def main():
     logger = Logger(level="DEBUG")
