@@ -1,23 +1,20 @@
 import asyncio
 import time
-import random
-from collections import namedtuple
+from Database import Database
+from Location import Location
 from curl_cffi.requests import AsyncSession
-from db import Db
-from utils import parse_price
 from Logger import Logger
 import itertools
-from collections import namedtuple
+from constants import LOCATIONS_BASE_URL
 
 
 class LocationsScraper:
-    BASE_URL = "https://www.idealista.com/es/locationsSuggest/sale/home?searchField="
     MAX_CONCURRENT_REQUESTS = 10
 
-    def __init__(self, session, logger: Logger):
+    def __init__(self, logger: Logger, database: Database):
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
-        self.session = session
         self.logger = logger
+        self.database = database
         self.locations = set()
 
     async def run(self):
@@ -31,15 +28,17 @@ class LocationsScraper:
         async with self.semaphore:
             async with AsyncSession(impersonate="chrome") as session:
                 tasks = [
-                    self.fetch_locations(session, f"{self.BASE_URL}{combination}")
+                    self._fetch_locations(session, f"{LOCATIONS_BASE_URL}{combination}")
                     for combination in combinations
                 ]
                 await asyncio.gather(*tasks)
 
-        self.logger.debug(self.locations)
+        response = self.database.insert_locations(self.locations)
+        self.logger.debug(f"locations insert response: {response}")
+
         self.logger.info(f"✅ Tiempo total: {time.time() - start_time:.2f} segundos")
 
-    async def fetch_locations(self, session, url):
+    async def _fetch_locations(self, session, url):
         headers = {
             "DNT": "1",
             "Upgrade-Insecure-Requests": "1",
@@ -55,13 +54,14 @@ class LocationsScraper:
         self.logger.debug(response.text)
         locations_json = response.json()
 
-        Location = namedtuple("Location", ["url", "count", "text"])
         for location_json in locations_json:
             location = Location(
-                url=location_json["url"],
-                count=location_json["count"],
-                text=location_json["text"],
+                number_of_properties=location_json["count"],
+                title=location_json["text"],
+                is_interest_zone=location_json["zoneOfInterest"],
+                category=location_json["category"],
+                path=location_json["url"],
             )
-            self.locations.add(location)
+            self.locations.add(frozenset(location.as_dict().items()))
 
         time.sleep(0.5)
