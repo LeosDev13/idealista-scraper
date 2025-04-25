@@ -1,24 +1,17 @@
 import asyncio
-import re
-import json
 import time
-import random
-from collections import namedtuple
-from bs4 import BeautifulSoup
+
 from curl_cffi.requests import AsyncSession
-from db import Db
-from utils import parse_price
+from bs4 import BeautifulSoup
+
 from Logger import Logger
 
-BASE_URL = "https://www.idealista.com"
-
-
+# TODO: review the whole class and see if we can simplify using only the features thing and not looking for the title in the html
 class IdealistaScraper:
-    def __init__(self):
+    def __init__(self, logger: Logger):
         self.semaphore = asyncio.Semaphore(3)
-        self.db = Db()
         self.session = None
-        self.logger = Logger(level="DEBUG")
+        self.logger = logger
 
     async def fetch_property_details(self, session, property_url):
         async with self.semaphore:
@@ -114,6 +107,3 @@ class IdealistaScraper:
         await self.scrape_page(next_page_link, session)
 
 
-if __name__ == "__main__":
-    scraper = IdealistaScraper()
-    asyncio.run(scraper.run())
