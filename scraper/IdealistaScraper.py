@@ -150,23 +150,20 @@ class IdealistaScraper:
             return
         self.logger.info(f"✅ Found {len(locations)} locations in the database")
 
-        urls = [
-            f"https://www.idealista.com{location.get('path').replace('mapa', '')}"
-            for location in locations
-        ]
-
         async with AsyncSession(impersonate="chrome") as session:
-            for url in urls:
+            for location in locations:
+                url = f"https://www.idealista.com{location.get('path').replace('mapa', '')}"
                 self.logger.info(f"▶️ Starting to scrape: {url}")
-                await self.scrape_page(url, session)
+                await self.scrape_page(url, session, location.get("id"))
                 self.logger.info(f"✅ Finished scraping: {url}")
 
         self.logger.info(
             f"✅ Scraping finished in {time.time() - start_time:.2f} seconds"
         )
 
-    async def scrape_page(self, url: str | None, session):
-        if url is None:
+    async def scrape_page(self, url: str | None, session, location_id: str | None):
+        if url is None or location_id is None:
+            self.logger.error("❌ URL or location ID is None")
             return
         r = await session.get(url)
         soup = BeautifulSoup(r.text, "lxml")
@@ -182,6 +179,7 @@ class IdealistaScraper:
                 **{k: v for k, v in p.model_dump().items() if k != "price"},
                 "price_amount": p.price.get_amount(),
                 "price_currency": p.price.get_currency(),
+                "location_id": location_id,
             }
             for p in properties
             if p is not None
@@ -195,7 +193,7 @@ class IdealistaScraper:
             self.logger.info(f"✅ {len(valid_properties)} properties saved to database")
 
         next_page_link = await self.get_next_page_link(soup)
-        await self.scrape_page(next_page_link, session)
+        await self.scrape_page(next_page_link, session, location_id)
 
     async def _fetch_property_links(self, soup: BeautifulSoup):
         return [link.get("href") for link in soup.find_all("a", class_="item-link")]
