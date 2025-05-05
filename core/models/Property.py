@@ -1,8 +1,10 @@
 from pydantic import BaseModel
-from models.Money import Money
+
+from core.models.Money import Money
 
 
 class Property(BaseModel):
+    id: str
     price: Money
     title: str
     description: str
@@ -17,10 +19,16 @@ class Property(BaseModel):
     is_new_development: bool
     needs_renovation: bool
     is_in_good_condition: bool
-    has_terrace: bool
     agency_name: str
     location: str
+    is_illegally_occupied: bool
+    url: str
 
     @property
     def price_per_square_meter(self) -> float:
-        self.price_per_square_meter = self.price / self.square_meters
+        if self.square_meters == 0:
+            return 0.0  # evita división por cero
+        return float(self.price.amount) / self.square_meters
+
+    def to_dict(self) -> dict:
+        return self.model_dump()

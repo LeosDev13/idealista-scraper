@@ -1,8 +1,9 @@
 import asyncio
 
+from core.Database import Database
+
 # from LocationsScraper import LocationsScraper
 from core.Logger import Logger
-from core.Database import Database
 from scraper.IdealistaScraper import IdealistaScraper
 
 
@@ -12,7 +13,7 @@ async def main():
 
     #  locations_scraper = LocationsScraper(logger, database)
     # await locations_scraper.run()
-    idealista_scraper = IdealistaScraper(logger)
+    idealista_scraper = IdealistaScraper(database, logger)
     await idealista_scraper.run()
 
 
