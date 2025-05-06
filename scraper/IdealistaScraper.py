@@ -157,6 +157,13 @@ class IdealistaScraper:
                 await self.scrape_page(url, session, location.get("id"))
                 self.logger.info(f"✅ Finished scraping: {url}")
 
+                if location != locations[-1]:
+                    sleep_time = random.uniform(5, 15)
+                    self.logger.info(
+                        f"💤 Sleeping for {sleep_time:.2f} seconds before next location..."
+                    )
+                    await asyncio.sleep(sleep_time)
+
         self.logger.info(
             f"✅ Scraping finished in {time.time() - start_time:.2f} seconds"
         )
@@ -165,6 +172,7 @@ class IdealistaScraper:
         if url is None or location_id is None:
             self.logger.error("❌ URL or location ID is None")
             return
+        self.logger.info(f"Scraping page: {url}")
         r = await session.get(url)
         soup = BeautifulSoup(r.text, "lxml")
 
